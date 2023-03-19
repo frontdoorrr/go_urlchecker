@@ -6,10 +6,16 @@ import (
 	"net/http"
 )
 
+type result struct {
+	url    string
+	status string
+}
+
 var errRequestFailed = errors.New("Request Failed")
 
 func main() {
-	var results = make(map[string]string)
+	results := make(map[string]string)
+	channel := make(chan result)
 	urls := []string{
 		"https://www.google.com/",
 		"https://www.naver.com/",
@@ -20,23 +26,23 @@ func main() {
 	}
 	results["hello"] = "Hello"
 	for _, url := range urls {
-		result := "OK"
-		fmt.Println("Checking :", url)
-		err := hitURL(url)
-		if err != nil {
-			result = "FAILED"
-		}
-		results[url] = result
+		go hitURL(url, channel)
 	}
-	for url, result := range results {
-		fmt.Println(url, result)
+
+	for i := 0; i < len(urls); i++ {
+		result := <-channel
+		fmt.Println(result.status)
+		fmt.Println(result.url)
 	}
 }
 
-func hitURL(url string) error {
+func hitURL(url string, channel chan<- result) {
+	fmt.Println("Checking", url)
 	resp, err := http.Get(url)
+	status := "OK"
 	if err != nil || resp.StatusCode >= 400 {
-		return errRequestFailed
+		status = "FAILED"
 	}
-	return nil
+	channel <- result{url: url, status: status}
+
 }
